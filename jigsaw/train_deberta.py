@@ -260,7 +260,7 @@ class DebertaBase(JigsawTrainer):
 
         submission_df = pd.DataFrame(
             {
-                "row_id": data["row_id"],
+                "row_id": test_data["row_id"],
                 "rule_violation": probs,
             }
         )

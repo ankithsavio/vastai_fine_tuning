@@ -61,9 +61,7 @@ def cleaner(text):
 def load_test_data():
     """Load test data."""
     print("Loading test data...")
-    test_df = pd.read_csv(
-        "/kaggle/input/jigsaw-agile-community-rules/test.csv"
-    )
+    test_df = pd.read_csv("train.csv")
     print(f"Loaded {len(test_df)} test examples")
     print(f"Unique rules: {test_df['rule'].nunique()}")
     return test_df
@@ -312,7 +310,7 @@ def load_or_create_finetuned_model(test_df):
     print("Loading base BGE embedding model...")
     # Try Kaggle path first, fallback to HuggingFace
     try:
-        model_path = "/kaggle/input/baai/transformers/bge-base-en-v1.5/1"
+        model_path = "BAAI/bge-base-en-v1.5"
         word_embedding_model = models.Transformer(
             model_path, max_seq_length=128, do_lower_case=True
         )
