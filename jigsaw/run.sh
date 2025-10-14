@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 pip install uv
 
 cd base_train
