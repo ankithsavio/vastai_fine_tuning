@@ -23,12 +23,12 @@ load_dotenv(".env")
 # Main configuration parameters
 WANDB = True  # Enable/disable Weights & Biases logging
 MODEL_NAME = "Qwen/Qwen2.5-32B-Instruct-AWQ"  # Pre-trained model to fine-tune
-IS_DEBUG = True  # Debug mode with small dataset
+IS_DEBUG = False  # Debug mode with small dataset
 N_FOLDS = 5  # Number of cross-validation folds
 EPOCH = 1  # Training epochs
 LR = 1e-4  # Learning rate
-TRAIN_BS = 1  # 8  # Training batch size
-GRAD_ACC_NUM = 8  # 1  # Gradient accumulation steps
+TRAIN_BS = 8  # 8  # Training batch size
+GRAD_ACC_NUM = 1  # 1  # Gradient accumulation steps
 EVAL_BS = 8  # Evaluation batch size
 FOLD = 0  # Current fold to train
 SEED = 42  # Random seed for reproducibility
@@ -158,10 +158,10 @@ Violation: Yes
         logging_steps=1,  # Log metrics every 10 steps
         logging_strategy="steps",
         eval_strategy="steps",  # No evaluation during training
-        eval_steps=1,
-        save_strategy="steps",
+        eval_steps=0.1,
+        save_strategy="no",
         save_steps=0.1,  # Save checkpoint after 10% of training steps
-        save_total_limit=10,  # Keep only the 10 most recent checkpoints
+        save_total_limit=2,  # Keep only the 10 most recent checkpoints
         num_train_epochs=EPOCH,
         optim="paged_adamw_8bit",  # 8-bit optimizer for memory efficiency
         lr_scheduler_type="linear",
