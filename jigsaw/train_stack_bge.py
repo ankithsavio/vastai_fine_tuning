@@ -219,7 +219,7 @@ Expert violation confidence : {row.expert_1}
     trainer.save_model(MODEL_OUTPUT_PATH)
     api = HfApi()
     api.create_repo(
-        repo_id="Weedoo/jigsaw-kaggle-Qwen2.5-32b-stack-bge",
+        repo_id="Weedoo/jigsaw-kaggle-Qwen2.5-32b-stack-bge_v2",
         repo_type="model",
         private=True,
         exist_ok=True,
@@ -227,7 +227,7 @@ Expert violation confidence : {row.expert_1}
 
     upload_folder(
         folder_path=MODEL_OUTPUT_PATH,
-        repo_id="Weedoo/jigsaw-kaggle-Qwen2.5-32b-stack-bge",
+        repo_id="Weedoo/jigsaw-kaggle-Qwen2.5-32b-stack-bge_v2",
         repo_type="model",
     )
 
