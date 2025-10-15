@@ -36,9 +36,9 @@ if not os.path.exists(deberta_out):
 df = pd.read_csv("train.csv")
 q = pd.read_csv(deberta_out)
 l = pd.read_csv(bge_out)
-
+ordered_l = l.set_index("row_id").loc[df["row_id"]].reset_index()
 df["expert_1"] = (q["rule_violation"] * 100).round(2).astype(str) + "%"
-df["expert_2"] = (l["rule_violation"] * 100).round(2).astype(str) + "%"
+df["expert_2"] = (ordered_l["rule_violation"] * 100).round(2).astype(str) + "%"
 df.to_csv("stack_train_all.csv")
 
 # Main configuration parameters

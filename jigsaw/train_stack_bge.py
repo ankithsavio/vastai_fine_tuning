@@ -31,8 +31,8 @@ ouptut = file_path
 
 df = pd.read_csv("train.csv")
 q = pd.read_csv(ouptut)
-
-df["expert_1"] = (q["rule_violation"] * 100).round(2).astype(str) + "%"
+ordered_q = q.set_index("row_id").loc[df["row_id"]].reset_index()
+df["expert_1"] = (ordered_q["rule_violation"] * 100).round(2).astype(str) + "%"
 df.to_csv("stack_train_bge.csv")
 
 # Main configuration parameters
