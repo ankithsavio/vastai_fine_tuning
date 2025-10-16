@@ -57,7 +57,7 @@ IS_DEBUG = False  # Debug mode with small dataset
 N_FOLDS = 5  # Number of cross-validation folds
 EPOCH = 1  # Training epochs
 LR = 1e-4  # Learning rate
-TRAIN_BS = 8  # 8  # Training batch size
+TRAIN_BS = 16  # Increase from 8  # Training batch size
 GRAD_ACC_NUM = 1  # 1  # Gradient accumulation steps
 EVAL_BS = 8  # Evaluation batch size
 FOLD = 0  # Current fold to train
@@ -268,7 +268,7 @@ Comment: {row.body}{expert_prompt}
 
     upload_folder(
         folder_path=MODEL_OUTPUT_PATH,
-        repo_id="Weedoo/jigsaw-kaggle-Qwen2.5-32b-stack-all_v3",
+        repo_id="Weedoo/jigsaw-kaggle-Qwen2.5-32b-stack-all_v3_big_batch",
         repo_type="model",
     )
 

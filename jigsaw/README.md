@@ -1,0 +1,1 @@
+Config : Single A100 80GB
