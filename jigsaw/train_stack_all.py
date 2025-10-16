@@ -104,15 +104,16 @@ You are an Expert Reddit Comment Moderator working in a group with other Expert 
 Other Expert opinions (range [0.0, 1.0]):
 Expert Deberta violation confidence rank : {row.expert_1}
 Expert Bge violation confidence rank : {row.expert_2}"""
-        elif choice < 0.60:
+        elif choice < 0.50:
             expert_prompt = """\n
 Other Expert opinions (range [0.0, 1.0]):
 Expert Deberta violation confidence rank : {row.expert_1}"""
-        elif choice < 0.80:
+        elif choice < 0.60:
             expert_prompt = """\n
 Other Expert opinions (range [0.0, 1.0]):
 Expert Bge violation confidence rank : {row.expert_2}"""
 
+        # 40%
         text = f"""
 r/{row.subreddit}
 Rule: {row.rule}
