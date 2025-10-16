@@ -37,8 +37,16 @@ df = pd.read_csv("train.csv")
 q = pd.read_csv(deberta_out)
 l = pd.read_csv(bge_out)
 ordered_l = l.set_index("row_id").loc[df["row_id"]].reset_index()
-df["expert_1"] = (q["rule_violation"] * 100).round(2).astype(str) + "%"
-df["expert_2"] = (ordered_l["rule_violation"] * 100).round(2).astype(str) + "%"
+df["expert_1"] = (
+    (q["rule_violation"].rank(method="average") / (len(q) + 1))
+    .round(2)
+    .astype(str)
+)
+df["expert_2"] = (
+    (ordered_l["rule_violation"].rank(method="average") / (len(ordered_l) + 1))
+    .round(2)
+    .astype(str)
+)
 df.to_csv("stack_train_all.csv")
 
 # Main configuration parameters
@@ -76,12 +84,15 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     tokenizer.padding_side = "left"  # Important for causal language models
 
+    train_df = pd.DataFrame()
+
     # Define system prompt for the classification task
     SYS_PROMPT = """
-You are given a comment on reddit. Your task is to classify if it violates the given rule. Only respond Yes/No.
+You are an Expert Reddit Comment Moderator working in a group with other Experts with different perspectives. You are given a comment on reddit. Your task is to classify if it violates the given rule. Only respond Yes/No.
 """
 
     prompts = []
+    completions = []
     for i, row in df.iterrows():
         text = f"""
 r/{row.subreddit}
@@ -101,9 +112,9 @@ Violation: Yes
 
 Comment: {row.body}
 
-Other Expert opinion:
-Expert 1 violation confidence : {row.expert_1}
-Expert 2 violation confidence : {row.expert_2}
+Other Expert opinions (range [0.0, 1.0]):
+Expert 1 violation confidence rank : {row.expert_1}
+Expert 2 violation confidence rank : {row.expert_2}
 """
 
         # Format as a chat conversation using the model's template
@@ -122,11 +133,63 @@ Expert 2 violation confidence : {row.expert_2}
         )
         prompts.append(prompt)
 
-    # Add the formatted prompts to the dataframe
-    df["prompt"] = prompts
-    df["completion"] = df["rule_violation"].apply(
-        lambda x: "Yes" if x == 1 else "No"
+    completions.extend(
+        df["rule_violation"]
+        .apply(lambda x: "Yes" if x == 1 else "No")
+        .tolist()
     )
+
+    SYS_PROMPT = """
+You are given a comment on reddit. Your task is to classify if it violates the given rule. Only respond Yes/No.
+"""
+
+    for i, row in df.iterrows():
+        text = f"""
+r/{row.subreddit}
+Rule: {row.rule}
+
+1) {row.positive_example_1}
+Violation: Yes
+
+2) {row.negative_example_1}
+Violation: No
+
+3) {row.negative_example_2}
+Violation: No
+
+4) {row.positive_example_2}
+Violation: Yes
+
+5) {row.body}
+"""
+
+        # Format as a chat conversation using the model's template
+        messages = [
+            {"role": "system", "content": SYS_PROMPT},
+            {"role": "user", "content": text},
+        ]
+
+        prompt = (
+            tokenizer.apply_chat_template(
+                messages,
+                add_generation_prompt=True,
+                tokenize=False,
+            )
+            + "Answer:"
+        )
+        prompts.append(prompt)
+
+    completions.extend(
+        df["rule_violation"]
+        .apply(lambda x: "Yes" if x == 1 else "No")
+        .tolist()
+    )
+
+    # Add the formatted prompts to the dataframe
+    train_df["prompt"] = prompts
+    train_df["completion"] = completions
+
+    df_train = train_df.sample(frac=1, random_state=42).reset_index(drop=True)
 
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
@@ -160,30 +223,32 @@ Expert 2 violation confidence : {row.expert_2}
 
     if WANDB:
         wandb.login(key=wandb_key)
-        wandb.init(project=COMPETITION_NAME, name=EXP_NAME + "-Qwen2.5_32b")
+        wandb.init(
+            project=COMPETITION_NAME, name=EXP_NAME + "-Qwen2.5_32b_fin"
+        )
         REPORT_TO = "wandb"
     else:
         REPORT_TO = "none"
 
     # Split data into train and validation sets
-    kf = KFold(n_splits=N_FOLDS, shuffle=True, random_state=42)
-    for fold, (train_idx, val_idx) in enumerate(kf.split(df)):
-        if fold == FOLD:
-            df_train = df.iloc[train_idx].reset_index(drop=True)
-            df_val = df.iloc[val_idx].reset_index(drop=True)
-            break
+    # kf = KFold(n_splits=N_FOLDS, shuffle=True, random_state=42)
+    # for fold, (train_idx, val_idx) in enumerate(kf.split(df)):
+    #     if fold == FOLD:
+    #         df_train = df.iloc[train_idx].reset_index(drop=True)
+    #         df_val = df.iloc[val_idx].reset_index(drop=True)
+    #         break
 
     # Save the split data
     df_train.to_pickle(f"{OUTPUT_DIR}/train.pkl")
-    df_val.to_pickle(f"{OUTPUT_DIR}/val.pkl")
+    # df_val.to_pickle(f"{OUTPUT_DIR}/val.pkl")
 
     # Set up training arguments
     training_args = SFTConfig(
         output_dir=MODEL_OUTPUT_PATH,
-        logging_steps=1,  # Log metrics every 10 steps
+        logging_steps=10,  # Log metrics every 10 steps
         logging_strategy="steps",
-        eval_strategy="steps",  # No evaluation during training
-        eval_steps=0.1,
+        # eval_strategy="steps",  # No evaluation during training
+        # eval_steps=0.1,
         save_strategy="no",
         save_steps=0.1,  # Save checkpoint after 10% of training steps
         save_total_limit=2,  # Keep only the 10 most recent checkpoints
@@ -208,14 +273,14 @@ Expert 2 violation confidence : {row.expert_2}
     )
 
     df_train_dataset = Dataset.from_pandas(df_train)
-    df_val_dataset = Dataset.from_pandas(df_val)
+    # df_val_dataset = Dataset.from_pandas(df_val)
 
     # Initialize trainer
     trainer = SFTTrainer(
         model,
         args=training_args,
         train_dataset=df_train_dataset,
-        eval_dataset=df_val_dataset,
+        # eval_dataset=df_val_dataset,
         peft_config=lora_config,
     )
 
@@ -226,7 +291,7 @@ Expert 2 violation confidence : {row.expert_2}
     trainer.save_model(MODEL_OUTPUT_PATH)
     api = HfApi()
     api.create_repo(
-        repo_id="Weedoo/jigsaw-kaggle-Qwen2.5-32b-stack-all_v2",
+        repo_id="Weedoo/jigsaw-kaggle-Qwen2.5-32b-stack-all_v3",
         repo_type="model",
         private=True,
         exist_ok=True,
@@ -234,7 +299,7 @@ Expert 2 violation confidence : {row.expert_2}
 
     upload_folder(
         folder_path=MODEL_OUTPUT_PATH,
-        repo_id="Weedoo/jigsaw-kaggle-Qwen2.5-32b-stack-all_v2",
+        repo_id="Weedoo/jigsaw-kaggle-Qwen2.5-32b-stack-all_v3",
         repo_type="model",
     )
 
